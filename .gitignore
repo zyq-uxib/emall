@@ -1,0 +1,51 @@
+# ==========================================
+# 1. Maven 编译与打包产物 (绝对不要传到仓库)
+# ==========================================
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ==========================================
+# 2. Java 编译字节码与日志文件
+# ==========================================
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+replay_pid*
+
+# ==========================================
+# 3. 敏感环境配置文件 (防止数据库密码泄露到公网仓库!)
+# ==========================================
+**/application-dev.yml
+**/application-prod.yml
+
+# ==========================================
+# 4. IDE 与编辑器本地配置 (VS Code / IDEA / Eclipse)
+# ==========================================
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+bin/
+
+# ==========================================
+# 5. 操作系统缓存文件 (Windows / macOS)
+# ==========================================
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store

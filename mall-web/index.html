@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电商商品智能采集与管理系统</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- 全屏登录界面 -->
+<div id="loginView" class="login-wrapper">
+    <div class="login-box">
+        <h2>🛒 电商商品管理系统登录</h2>
+        <p class="login-sub">请输入管理员账号密码以继续访问</p>
+        <div class="form-group">
+            <label>管理员账号</label>
+            <input type="text" id="loginUsername" value="admin" placeholder="请输入账号">
+        </div>
+        <div class="form-group">
+            <label>登录密码</label>
+            <input type="password" id="loginPassword" value="123456" placeholder="请输入密码" onkeyup="if(event.key==='Enter') handleLogin()">
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="handleLogin()">立即登录</button>
+    </div>
+</div>
+
+<header class="navbar">
+    <div class="brand">🛒 电商商品智能采集与管理系统</div>
+    <div class="crawler-box">
+        <label>采集页数：</label>
+        <select id="crawlPages">
+            <option value="1">1 页 (约20条)</option>
+            <option value="2">2 页 (约40条)</option>
+            <option value="3">3 页 (约60条)</option>
+        </select>
+        <button id="btnCrawl" class="btn btn-primary" onclick="triggerCrawl()">🚀 启动合规爬虫</button>
+        <span id="adminNickname" style="font-size:13px;color:#94a3b8;margin-left:12px;">👤 超级管理员</span>
+        <button class="btn btn-danger btn-sm" onclick="handleLogout()">退出登录</button>
+    </div>
+</header>
+
+<main class="container" id="mainApp">
+    <!-- 顶部数据概览与采集日志 -->
+    <section class="dashboard">
+        <div class="card stat-card">
+            <h3>在库商品总数</h3>
+            <p id="statTotal" class="stat-num">0</p>
+        </div>
+        <div class="card stat-card">
+            <h3>商品分类总数</h3>
+            <p id="statCategories" class="stat-num">0</p>
+        </div>
+        <div class="card log-card">
+            <h3>最近爬虫执行日志 (合规数据源: ://toscrape.com)</h3>
+            <ul id="logList" class="log-list"><li>加载中...</li></ul>
+        </div>
+    </section>
+
+    <!-- 模块导航选项卡 -->
+    <nav class="tabs">
+        <button id="tabBtnProducts" class="tab-btn active" onclick="switchTab('products')">📦 商品信息管理 (CRUD)</button>
+        <button id="tabBtnCategories" class="tab-btn" onclick="switchTab('categories')">🏷️ 商品分类管理 (CRUD)</button>
+    </nav>
+
+    <!-- 模块一：商品信息管理视图 -->
+    <div id="viewProducts" class="view-section">
+        <section class="toolbar card">
+            <div class="filters">
+                <input type="text" id="searchKeyword" placeholder="输入商品名称搜索..." onkeyup="if(event.key==='Enter') loadProducts(1)">
+                <select id="filterCategory" onchange="loadProducts(1)">
+                    <option value="">全部分类</option>
+                </select>
+                <button class="btn btn-secondary" onclick="loadProducts(1)">🔍 查询</button>
+                <button class="btn btn-outline" onclick="resetSearch()">重置</button>
+            </div>
+            <button class="btn btn-success" onclick="openProductModal()">+ 手动录入商品</button>
+        </section>
+
+        <section class="card table-wrapper">
+            <table>
+                <thead>
+                <tr>
+                    <th width="60">ID</th>
+                    <th width="70">封面</th>
+                    <th>商品标题</th>
+                    <th width="130">所属分类</th>
+                    <th width="100">价格 (£)</th>
+                    <th width="80">库存</th>
+                    <th width="100">星级</th>
+                    <th width="90">状态</th>
+                    <th width="180">操作</th>
+                </tr>
+                </thead>
+                <tbody id="productTableBody"></tbody>
+            </table>
+            <div class="pagination" id="pagination"></div>
+        </section>
+    </div>
+
+    <!-- 模块二：商品分类管理视图 -->
+    <div id="viewCategories" class="view-section hidden">
+        <section class="toolbar card">
+            <div style="color:#64748b;font-size:14px;">管理电商商品所属类目（关联有商品的分类受外键保护禁止直接删除）</div>
+            <button class="btn btn-success" onclick="openCategoryModal()">+ 新增商品分类</button>
+        </section>
+
+        <section class="card table-wrapper">
+            <table>
+                <thead>
+                <tr>
+                    <th width="80">分类ID</th>
+                    <th>分类名称</th>
+                    <th width="150">关联商品数量</th>
+                    <th width="200">创建时间</th>
+                    <th width="160">操作</th>
+                </tr>
+                </thead>
+                <tbody id="categoryTableBody"></tbody>
+            </table>
+        </section>
+    </div>
+</main>
+
+<!-- 弹窗1：新增/编辑商品 -->
+<div id="productModal" class="modal hidden">
+    <div class="modal-content">
+        <h3 id="productModalTitle">编辑商品</h3>
+        <input type="hidden" id="editProdId">
+        <div class="form-group">
+            <label>商品标题</label>
+            <input type="text" id="editTitle" placeholder="请输入商品完整名称" required>
+        </div>
+        <div class="form-group">
+            <label>所属分类</label>
+            <select id="editCategory"></select>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>价格 (£)</label>
+                <input type="number" step="0.01" id="editPrice">
+            </div>
+            <div class="form-group">
+                <label>库存数量</label>
+                <input type="number" id="editStock">
+            </div>
+            <div class="form-group">
+                <label>星级 (1-5)</label>
+                <input type="number" min="1" max="5" id="editRating">
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeModal('productModal')">取消</button>
+            <button class="btn btn-primary" onclick="saveProduct()">保存提交</button>
+        </div>
+    </div>
+</div>
+
+<!-- 弹窗2：新增/编辑分类 -->
+<div id="categoryModal" class="modal hidden">
+    <div class="modal-content">
+        <h3 id="categoryModalTitle">新增商品分类</h3>
+        <input type="hidden" id="editCatId">
+        <div class="form-group">
+            <label>分类名称</label>
+            <input type="text" id="editCatName" placeholder="例如：Science Fiction" required>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeModal('categoryModal')">取消</button>
+            <button class="btn btn-primary" onclick="saveCategory()">保存提交</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
