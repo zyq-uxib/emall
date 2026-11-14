@@ -1,7 +1,21 @@
+SET NAMES utf8mb4;
+
+-- 1. 创建数据库
 CREATE DATABASE IF NOT EXISTS `mall_crawler_db` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `mall_crawler_db`;
 
--- 1. 商品分类表
+-- 2. 系统管理员表
+DROP TABLE IF EXISTS `t_admin`;
+CREATE TABLE `t_admin` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '管理员ID',
+  `username` VARCHAR(64) NOT NULL UNIQUE COMMENT '登录账号',
+  `password` VARCHAR(128) NOT NULL COMMENT '登录密码',
+  `nickname` VARCHAR(64) DEFAULT 'Admin' COMMENT '显示昵称',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统管理员表';
+
+-- 3. 商品分类表
 DROP TABLE IF EXISTS `t_category`;
 CREATE TABLE `t_category` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '分类ID',
@@ -10,7 +24,7 @@ CREATE TABLE `t_category` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品分类表';
 
--- 2. 商品信息主表
+-- 4. 商品信息主表
 DROP TABLE IF EXISTS `t_product`;
 CREATE TABLE `t_product` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '商品ID',
@@ -28,7 +42,7 @@ CREATE TABLE `t_product` (
   KEY `idx_title` (`title`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='电商商品主表';
 
--- 3. 爬虫运行日志表
+-- 5. 爬虫运行日志表
 DROP TABLE IF EXISTS `t_crawl_log`;
 CREATE TABLE `t_crawl_log` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志ID',
@@ -40,5 +54,6 @@ CREATE TABLE `t_crawl_log` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='爬虫任务日志表';
 
--- 预置默认分类（支持未启动爬虫时直接手动添加商品）
+-- 6. 初始化基础数据
 INSERT IGNORE INTO `t_category` (`category_name`) VALUES ('General');
+INSERT IGNORE INTO `t_admin` (`username`, `password`, `nickname`) VALUES ('aDmIn', '123456', '超级管理员');

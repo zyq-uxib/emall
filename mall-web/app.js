@@ -328,3 +328,33 @@ async function deleteProduct(id) {
     await loadCategories();
     await loadProducts(currentPage);
 }
+// --- 4. 修改管理员密码 ---
+function openPwdModal() {
+    document.getElementById('oldPwdInput').value = '';
+    document.getElementById('newPwdInput').value = '';
+    document.getElementById('confirmPwdInput').value = '';
+    document.getElementById('pwdModal').classList.remove('hidden');
+}
+
+async function submitChangePwd() {
+    const oldPassword = document.getElementById('oldPwdInput').value.trim();
+    const newPassword = document.getElementById('newPwdInput').value.trim();
+    const confirmPassword = document.getElementById('confirmPwdInput').value.trim();
+
+    if (!oldPassword || !newPassword) return alert('请完整填写原密码和新密码');
+    if (newPassword !== confirmPassword) return alert('两次输入的新密码不一致');
+
+    const res = await authFetch(API_BASE + '/admin/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPassword, newPassword })
+    });
+    const json = await res.json();
+    if (json.code !== 200) return alert(json.msg);
+
+    alert(json.data);
+    closeModal('pwdModal');
+    localStorage.removeItem('mall_token');
+    localStorage.removeItem('mall_nickname');
+    showLoginView();
+}

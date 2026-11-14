@@ -53,6 +53,28 @@ public class MallController {
         tokenStore.removeToken(token);
         return Result.ok("已安全退出");
     }
+    // 修改密码接口
+    @PutMapping("/admin/password")
+    public Result<?> changePassword(@RequestHeader("Authorization") String token,
+                                    @RequestBody Map<String, String> params) {
+        Admin currentAdmin = tokenStore.getAdmin(token);
+        if (currentAdmin == null) {
+            return Result.unauthorized("登录已过期，请重新登录");
+        }
+        String oldPassword = params.get("oldPassword");
+        String newPassword = params.get("newPassword");
+        if (oldPassword == null || newPassword == null || newPassword.trim().length() < 4) {
+            return Result.error("新密码不能为空且长度不少于 4 位");
+        }
+        int rows = adminMapper.updatePassword(currentAdmin.getId(), oldPassword.trim(), newPassword.trim());
+        if (rows == 0) {
+            return Result.error("原密码输入错误（请严格注意大小写）");
+        }
+        // 修改成功后立即销毁当前登录令牌，强制使用新密码重新登录
+        tokenStore.removeToken(token);
+        return Result.ok("密码修改成功，请重新登录");
+    }
+
 
     // --- 1. 爬虫调度与日志接口 ---
     @PostMapping("/crawler/start")
