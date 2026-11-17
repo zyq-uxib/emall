@@ -56,4 +56,4 @@ CREATE TABLE `t_crawl_log` (
 
 -- 6. 初始化基础数据
 INSERT IGNORE INTO `t_category` (`category_name`) VALUES ('General');
-INSERT IGNORE INTO `t_admin` (`username`, `password`, `nickname`) VALUES ('aDmIn', '123456', '超级管理员');
+INSERT IGNORE INTO `t_admin` (`username`, `password`, `nickname`) VALUES ('your_admin_user', 'change_me_on_deploy', '超级管理员');
