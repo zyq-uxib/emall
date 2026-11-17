@@ -1,7 +1,15 @@
 const API_BASE = window.location.port === '80' || window.location.port === ''
     ? '/api'
     : 'http://127.0.0.1:8080/api';
-    
+
+// 纯本地内联 SVG 封面（无需联网，永不超时，零死循环）
+const FALLBACK_COVER = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN8+fJlPQAIswM1R17gGAAAAABJRU5ErkJggg==";
+
+function handleImgError(img) {
+    img.onerror = null; // 关键熔断：防止任何情况下重复触发
+    img.src = FALLBACK_COVER;
+}
+
 // 1. 页面加载时检查本地是否已有登录令牌
 document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('mall_token');
@@ -78,9 +86,7 @@ let currentPage = 1;
 const pageSize = 10;
 let categoriesCache = [];
 
-document.addEventListener('DOMContentLoaded', () => {
-    initDashboard();
-});
+
 
 async function initDashboard() {
     await loadCategories();
@@ -88,37 +94,74 @@ async function initDashboard() {
     await loadProducts(1);
 }
 
-// 选项卡视图切换
 function switchTab(tab) {
-    document.getElementById('tabBtnProducts').classList.toggle('active', tab === 'products');
-    document.getElementById('tabBtnCategories').classList.toggle('active', tab === 'categories');
-    document.getElementById('viewProducts').classList.toggle('hidden', tab !== 'products');
-    document.getElementById('viewCategories').classList.toggle('hidden', tab !== 'categories');
+    const map = {
+        products: { btn: 'tabBtnProducts', view: 'viewProducts' },
+        categories: { btn: 'tabBtnCategories', view: 'viewCategories' },
+        spider: { btn: 'tabBtnSpider', view: 'viewSpider' },
+        csv: { btn: 'tabBtnCsv', view: 'viewCsv' }
+    };
+    Object.keys(map).forEach(key => {
+        const item = map[key];
+        document.getElementById(item.btn).classList.toggle('active', key === tab);
+        document.getElementById(item.view).classList.toggle('hidden', key !== tab);
+    });
 }
 
-// --- 1. 爬虫控制与日志 ---
-async function triggerCrawl() {
-    const pages = document.getElementById('crawlPages').value;
-    const btn = document.getElementById('btnCrawl');
+
+
+
+async function triggerHtmlSpider() {
+    const startPage = document.getElementById('spiderStartPage').value;
+    const endPage = document.getElementById('spiderEndPage').value;
+    const btn = document.getElementById('btnSpiderCrawl');
     btn.disabled = true;
-    btn.innerText = '⏳ 正在合法采集中...';
+    btn.innerText = '⏳ 正在解析网页并采集...';
 
     try {
-        const res = await authFetch(`${API_BASE}/crawler/start?pages=${pages}`, { method: 'POST' });
+        const url = API_BASE + '/crawler/books?startPage=' + startPage + '&endPage=' + endPage;
+        const res = await authFetch(url, { method: 'POST' });
         const json = await res.json();
         if (json.code === 200) {
-            alert(`采集完成！新增入库 ${json.data.successCount} 条商品，耗时 ${json.data.costTimeMs} ms`);
+            alert('网页爬虫采集完成！新增入库 ' + json.data.successCount + ' 本图书，耗时 ' + json.data.costTimeMs + ' ms');
             initDashboard();
         } else {
             alert('采集异常：' + json.msg);
         }
     } catch (e) {
-        alert('网络请求失败，请确认 Spring Boot 后端服务已启动');
+        if (e.message !== 'Unauthorized') alert('请求失败，请检查后端服务');
     } finally {
         btn.disabled = false;
-        btn.innerText = '🚀 启动合规爬虫';
+        btn.innerText = '🚀 启动网页爬虫';
     }
 }
+
+
+function renderPagination(total) {
+    const totalPages = Math.ceil(total / pageSize) || 1;
+    const div = document.getElementById('pagination');
+    div.innerHTML = `
+        <span>共 <b>${total}</b> 本图书 | 第 ${currentPage} / ${totalPages} 页</span>
+        <button class="btn btn-outline btn-sm" ${currentPage <= 1 ? 'disabled' : ''} onclick="loadProducts(1)">首页</button>
+        <button class="btn btn-outline btn-sm" ${currentPage <= 1 ? 'disabled' : ''} onclick="loadProducts(${currentPage - 1})">上一页</button>
+        <button class="btn btn-outline btn-sm" ${currentPage >= totalPages ? 'disabled' : ''} onclick="loadProducts(${currentPage + 1})">下一页</button>
+        <button class="btn btn-outline btn-sm" ${currentPage >= totalPages ? 'disabled' : ''} onclick="loadProducts(${totalPages})">末页</button>
+        <span style="margin-left:8px;">跳至</span>
+        <input type="number" id="jumpPageInput" min="1" max="${totalPages}" value="${currentPage}" style="width:65px;padding:4px 6px;">
+        <button class="btn btn-secondary btn-sm" onclick="jumpToPage(${totalPages})">跳转</button>
+    `;
+}
+
+function jumpToPage(maxPage) {
+    const val = Number(document.getElementById('jumpPageInput').value);
+    if (val >= 1 && val <= maxPage) {
+        loadProducts(val);
+    } else {
+        alert('请输入 1 到 ' + maxPage + ' 之间的有效页码');
+    }
+}
+
+
 
 async function loadLogs() {
     const res = await authFetch(`${API_BASE}/crawler/logs`);
@@ -234,7 +277,7 @@ function renderProductTable(list) {
     tbody.innerHTML = list.map(p => `
         <tr>
             <td>${p.id}</td>
-            <td><img class="thumb" src="${p.imageUrl || 'https://placeholder.com'}" alt="封面"></td>
+            <td><img class="thumb" src="${p.imageUrl || FALLBACK_COVER}" onerror="handleImgError(this)" alt="封面"></td>
             <td><a href="${p.sourceUrl}" target="_blank" style="color:#1e293b;text-decoration:none;font-weight:500;">${p.title}</a></td>
             <td>${p.categoryName || '未分类'}</td>
             <td>£${Number(p.price).toFixed(2)}</td>
@@ -250,16 +293,6 @@ function renderProductTable(list) {
     `).join('');
 }
 
-function renderPagination(total) {
-    const totalPages = Math.ceil(total / pageSize) || 1;
-    const div = document.getElementById('pagination');
-    div.innerHTML = `
-        <span>共 ${total} 条记录 | 第 ${currentPage} / ${totalPages} 页</span>
-        <button class="btn btn-outline btn-sm" ${currentPage <= 1 ? 'disabled' : ''} onclick="loadProducts(${currentPage - 1})">上一页</button>
-        <button class="btn btn-outline btn-sm" ${currentPage >= totalPages ? 'disabled' : ''} onclick="loadProducts(${currentPage + 1})">下一页</button>
-    `;
-}
-
 function resetSearch() {
     document.getElementById('searchKeyword').value = '';
     document.getElementById('filterCategory').value = '';
@@ -268,26 +301,29 @@ function resetSearch() {
 
 function openProductModal(product = null) {
     if (categoriesCache.length === 0) {
-        return alert('请先启动爬虫或前往“商品分类管理”创建一个分类！');
+        return alert('请先采集或创建一个图书分类！');
     }
     document.getElementById('productModal').classList.remove('hidden');
     if (product) {
-        document.getElementById('productModalTitle').innerText = '编辑商品信息';
+        document.getElementById('productModalTitle').innerText = '编辑图书信息';
         document.getElementById('editProdId').value = product.id;
         document.getElementById('editTitle').value = product.title;
         document.getElementById('editCategory').value = product.categoryId;
+        document.getElementById('editImageUrl').value = product.imageUrl || '';
         document.getElementById('editPrice').value = product.price;
         document.getElementById('editStock').value = product.stock;
         document.getElementById('editRating').value = product.rating;
     } else {
-        document.getElementById('productModalTitle').innerText = '手动录入新商品';
+        document.getElementById('productModalTitle').innerText = '手动录入新图书';
         document.getElementById('editProdId').value = '';
         document.getElementById('editTitle').value = '';
+        document.getElementById('editImageUrl').value = '';
         document.getElementById('editPrice').value = '19.99';
         document.getElementById('editStock').value = '50';
         document.getElementById('editRating').value = '5';
     }
 }
+
 
 function closeModal(modalId) {
     document.getElementById(modalId).classList.add('hidden');
@@ -299,10 +335,12 @@ async function saveProduct() {
         id: id ? Number(id) : null,
         title: document.getElementById('editTitle').value.trim(),
         categoryId: Number(document.getElementById('editCategory').value),
+        imageUrl: document.getElementById('editImageUrl').value.trim(),
         price: Number(document.getElementById('editPrice').value),
         stock: Number(document.getElementById('editStock').value),
         rating: Number(document.getElementById('editRating').value)
     };
+
     if (!payload.title) return alert('请填写商品标题');
 
     const res = await authFetch(`${API_BASE}/products`, {
@@ -357,4 +395,42 @@ async function submitChangePwd() {
     localStorage.removeItem('mall_token');
     localStorage.removeItem('mall_nickname');
     showLoginView();
+}
+
+// --- 5. 开源真实书目 CSV 批量导入 ---
+async function triggerCsvImport() {
+    const fileInput = document.getElementById('csvFileInput');
+    if (!fileInput.files || fileInput.files.length === 0) {
+        return alert('请先点击“选择文件”选中本地的 .csv 书目数据集！');
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const btn = document.getElementById('btnCsvUpload');
+    btn.disabled = true;
+    btn.innerText = '⏳ 正在流式解析并写入 MySQL...';
+
+    try {
+        const res = await authFetch(API_BASE + '/crawler/import-csv', {
+            method: 'POST',
+            body: formData
+        });
+        const json = await res.json();
+        if (json.code === 200) {
+            alert('CSV 导入完成！成功去重入库 ' + json.data.successCount + ' 本真实图书，耗时 ' + json.data.costTimeMs + ' ms');
+            fileInput.value = '';
+            initDashboard();
+        } else {
+            alert('导入异常：' + json.msg);
+        }
+    } catch (e) {
+        if (e.message !== 'Unauthorized') {
+            alert('上传失败，请检查文件大小或后端服务状态');
+        }
+    } finally {
+        btn.disabled = false;
+        btn.innerText = '📤 上传并极速导入数据库';
+    }
 }

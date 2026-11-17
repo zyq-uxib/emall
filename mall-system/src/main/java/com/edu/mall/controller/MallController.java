@@ -53,10 +53,11 @@ public class MallController {
         tokenStore.removeToken(token);
         return Result.ok("已安全退出");
     }
+
     // 修改密码接口
     @PutMapping("/admin/password")
     public Result<?> changePassword(@RequestHeader("Authorization") String token,
-                                    @RequestBody Map<String, String> params) {
+            @RequestBody Map<String, String> params) {
         Admin currentAdmin = tokenStore.getAdmin(token);
         if (currentAdmin == null) {
             return Result.unauthorized("登录已过期，请重新登录");
@@ -75,14 +76,35 @@ public class MallController {
         return Result.ok("密码修改成功，请重新登录");
     }
 
-
-    // --- 1. 爬虫调度与日志接口 ---
-    @PostMapping("/crawler/start")
-    public Result<CrawlLog> startCrawl(@RequestParam(defaultValue = "1") int pages) {
-        if (pages < 1 || pages > 5) {
-            return Result.error("单次采集页数限制在 1~5 页之间，确保合规与响应速度");
+    // --- 1A. HTML 网页爬虫接口 (://toscrape.com) ---
+    @PostMapping("/crawler/books")
+    public Result<CrawlLog> crawlHtmlBooks(@RequestParam(defaultValue = "1") int startPage,
+            @RequestParam(defaultValue = "5") int endPage) {
+        if (startPage < 1 || endPage > 50 || startPage > endPage) {
+            return Result.error("网页爬虫页码范围无效，请输入 1~50 之间的有效页码");
         }
-        return Result.ok(crawlerService.executeCrawl(pages));
+        if (endPage - startPage + 1 > 10) {
+            return Result.error("单次最多连续采集 10 页（约 200 本图书），请分批次采集");
+        }
+        return Result.ok(crawlerService.crawlHtmlBooks(startPage, endPage));
+    }
+
+    // --- 1D. 开源真实书目 CSV 批量导入接口 ---
+    @PostMapping("/crawler/import-csv")
+    public Result<CrawlLog> importCsvBooks(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        if (file.isEmpty()) {
+            return Result.error("请选择要上传的 CSV 文件");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !originalFilename.toLowerCase().endsWith(".csv")) {
+            return Result.error("文件格式错误，仅支持 .csv 格式的书目数据集");
+        }
+        try {
+            CrawlLog log = crawlerService.importBooksFromCsv(file.getInputStream(), originalFilename);
+            return Result.ok(log);
+        } catch (Exception e) {
+            return Result.error("文件读取失败：" + e.getMessage());
+        }
     }
 
     @GetMapping("/crawler/logs")
@@ -93,9 +115,9 @@ public class MallController {
     // --- 2. 商品信息完整 CRUD 接口 ---
     @GetMapping("/products")
     public Result<?> listProducts(@RequestParam(defaultValue = "1") int page,
-                                  @RequestParam(defaultValue = "10") int size,
-                                  @RequestParam(required = false) String keyword,
-                                  @RequestParam(required = false) Long categoryId) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long categoryId) {
         int offset = (page - 1) * size;
         Map<String, Object> data = new HashMap<>();
         data.put("list", productMapper.selectPage(offset, size, keyword, categoryId));

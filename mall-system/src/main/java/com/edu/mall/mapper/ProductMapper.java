@@ -17,6 +17,8 @@ public interface ProductMapper {
     int existsBySourceUrl(String sourceUrl);
 
     int insert(Product product);
+    int batchInsertIgnore(@Param("list") List<Product> list);
+
 
     int update(Product product);
 

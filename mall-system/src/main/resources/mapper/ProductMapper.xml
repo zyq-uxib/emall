@@ -40,9 +40,19 @@
         UPDATE t_product
         SET category_id = #{categoryId},
             title = #{title},
+            image_url = #{imageUrl},
             price = #{price},
             stock = #{stock},
             rating = #{rating}
         WHERE id = #{id}
     </update>
+
+
+    <insert id="batchInsertIgnore">
+        INSERT IGNORE INTO t_product(category_id, title, price, stock, rating, image_url, source_url, status)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.categoryId}, #{item.title}, #{item.price}, #{item.stock}, #{item.rating}, #{item.imageUrl}, #{item.sourceUrl}, #{item.status})
+        </foreach>
+    </insert>
 </mapper>
